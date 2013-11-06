@@ -1,0 +1,252 @@
+<?php
+/**
+ * Changing admin password using drush {drush upwd admin --password="newpassword" }
+ */
+/**
+ * Implements hook_form_alter
+ */
+function adscluster_form_alter(&$form, &$form_state, $formid) {
+  if ($formid == 'ads_node_form') {
+    $form['field_start_date']['#states'] = array('visible' => array(':input[name="field_one_day[und]"]' => array('checked' => FALSE)));
+    $form['field_offer_date']['#states'] = array('visible' => array(':input[name="field_one_day[und]"]' => array('checked' => TRUE)));
+  }
+}
+
+/**
+ * Implements hook_menu
+ */
+function adscluster_menu() {
+  $items['adscluster/register'] = array(
+    'title' => 'Register with us.',
+    'description' => 'Registration Form',
+    'page callback' => 'drupal_get_form',
+    'access callback' => TRUE,
+    'page arguments' => array('adscluster_register_form'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['adscluster/store/%/edit'] = array(
+    'title' => 'Edit your account',
+    'description' => 'Form to edit the store details',
+    'page callback' => 'drupal_get_form',
+    'access callback' => TRUE,
+    'page arguments' => array(
+      'adscluster_register_form',
+      2
+    ),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+function adscluster_get_taxonomy_terms($var, $parent, $depth) {
+  $vocabs = taxonomy_vocabulary_get_names();
+  $tree = taxonomy_get_tree($vocabs[$var] -> vid, $parent, $depth);
+  foreach ($tree as $value) {
+    $terms[$value -> tid] = $value -> name;
+  }
+  return $terms;
+}
+
+/**
+ * Implements hook_form
+ */
+function adscluster_register_form($form, &$form_state, $storeid = NULL) {
+  $edit = '';
+  if (isset($storeid)) {
+    $squery = db_select('adscluster_store', 'store');
+    $squery -> innerJoin('adscluster_address', 'address', 'address.addr_type_id = store.store_id AND address.addr_type = :store', array(':store' => 'store'));
+    $squery -> fields('store', array(
+      'store_id',
+      'name',
+      'mobile',
+      'store_category',
+      'store_brand'
+    ));
+    $squery -> fields('address', array(
+      'addr_location_state',
+      'addr_location_city',
+      'addr_full',
+      'addr_landmark'
+    ));
+    $squery -> condition('store_id', $storeid, '=');
+    $edit = $squery -> execute() -> fetchObject();
+  }
+  $form['contact'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Enter your contact details.')
+  );
+  $form['contact']['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Username'),
+    '#description' => t('Please enter the name that you want to register the account with'),
+    '#size' => 60,
+    '#max_length' => 60,
+    '#default_value' => isset($edit -> name) ? $edit -> name : ''
+  );
+  $form['contact']['password'] = array(
+    '#type' => 'password_confirm',
+    '#description' => t('Please enter a password of your choice'),
+    '#size' => 30,
+    '#max_length' => 30,
+  );
+  $form['contact']['mobile'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Mobile No.'),
+    '#description' => t('Enter a mobile number for us and the customers to contact you with.')
+  );
+  $form['contact']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Email address.'),
+    '#description' => t('Enter your store email address'),
+  );
+  $form['contact']['picture'] = array(
+  '#type' => 'file',
+  '#title' => t('Logo'),
+  '#description' => t('Upload a logo for your ads.'),
+  );
+  $form['location'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Loaction.'),
+  );
+  $state_options = adscluster_get_taxonomy_terms('location', 0, 1);
+  $selected_state = isset($form_state['values']['state']) ? $form_state['values']['state'] : key($state_options);
+  $form['location']['state'] = array(
+    '#type' => 'select',
+    '#title' => t('State'),
+    '#name' => 'state',
+    '#description' => t('Selet the state.'),
+    '#options' => $state_options,
+    '#default_value' => $selected_state,
+    '#ajax' => array(
+      //'event' => 'change',
+      'callback' => 'adscluster_ajax_generator',
+      'wrapper' => 'city-dropdown'
+    ),
+    '#required' => TRUE
+  );
+  $city_options = adscluster_get_taxonomy_terms('location', $selected_state, 1);
+  $selected_city = isset($form_state['values']['city']) ? $form_state['values']['city'] : key($city_options);
+  $form['location']['city'] = array(
+    '#type' => 'select',
+    '#title' => t('City'),
+    '#name' => 'city',
+    '#description' => t('Please select the City.'),
+    '#prefix' => '<div id="city-dropdown">',
+    '#suffix' => '</div>',
+    '#required' => TRUE,
+    '#options' => $city_options,
+    '#ajax' => array(
+      'callback' => 'adscluster_ajax_generator',
+      'wrapper' => 'area-dropdown'
+    ),
+  );
+  $form['location']['area'] = array(
+    '#type' => 'select',
+    '#title' => t('Area'),
+    '#description' => t('Please select the area.'),
+    '#prefix' => '<div id="area-dropdown">',
+    '#suffix' => '</div>',
+    '#required' => TRUE,
+    '#options' => adscluster_get_taxonomy_terms('location', $selected_city, 1),
+    // '#default_value' => isset($edit -> addr_location_area) ? $edit -> addr_location_area : 0
+  );
+  $form['location']['address'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Address'),
+    '#description' => t('Enter your store address to help customers locate you.'),
+    '#default_value' => isset($edit -> addr_full) ? $edit -> addr_full : ' ',
+  );
+  $form['location']['landmark'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter a landmark'),
+    '#description' => t('Any landmark that is located near your store.'),
+    '#default_value' => isset($edit -> addr_landmark) ? $edit -> addr_landmark : ''
+  );
+  $category_options = adscluster_get_taxonomy_terms('ad_category', 0, 1);
+  $selected_category = isset($form_state['values']['category']) ? $form_state['values']['category'] : key($category_options);
+  $form['category'] = array(
+    '#type' => 'select',
+    '#title' => t('Category'),
+    '#name' => 'category',
+    '#description' => t('Please select the category that your Ads should belongs to.'),
+    '#default_value' => $selected_category,
+    '#options' => $category_options,
+    '#ajax' => array(
+      'callback' => 'adscluster_ajax_generator',
+      'wrapper' => 'franchise-dropdown'
+    ),
+    '#required' => TRUE,
+  );
+  $form['brand'] = array(
+    '#type' => 'select',
+    '#title' => t('Select a Franchise'),
+    '#description' => t('Please select one of the franchaises store belongs to(If not listed select none).'),
+    '#prefix' => '<div id="franchise-dropdown">',
+    '#suffix' => '</div>',
+    '#default_value' => '',
+    '#options' => adscluster_get_taxonomy_terms('ad_category', $selected_category, 1),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#title' => t('Submit'),
+    '#value' => t('Submit')
+  );
+  
+  return $form;
+}
+
+function adscluster_ajax_generator($form, $form_state) {
+  if ($form_state['triggering_element']['#name'] == 'state') {
+    return $form['location']['city'];
+  }
+  else if ($form_state['triggering_element']['#name'] == 'category') {
+    return $form['brand'];
+  }
+  else if ($form_state['triggering_element']['#name'] == 'city') {
+    return $form['location']['area'];
+  }
+}
+
+/**
+ * submit function for the form.
+ */
+function adscluster_register_form_submit($form, &$form_state) {
+  $account -> is_new = TRUE;
+  $user_vars = array(
+    'name' => $form_state['values']['name'],
+    'pass' => $form_state['values']['password'],
+    'mail' => $form_state['values']['email'],
+    'status' => 1,
+  );
+  $category = 'account';
+  $uid = user_save($account, $user_vars, $category);
+  watchdog('form_values', var_export($form_state['values'], TRUE));
+  $inquery = db_insert('adscluster_stores') -> fields(array(
+    'name' => $form_state['values']['name'],
+    'mobile' => $form_state['values']['mobile'],
+    'store_category' => $form_state['values']['category'],
+    'store_brand' => $form_state['values']['brand'],
+    'uid' => $uid->uid,
+  )) -> execute();
+  $add_query = db_insert('adscluster_address') -> fields(array(
+    'addr_type' => 'store',
+    'addr_type_id' => $inquery,
+    'addr_location_state' => $form_state['values']['state'],
+    'addr_location_city' => $form_state['values']['city'],
+    'addr_location_area' => $form_state['values']['area'],
+    'addr_full' => $form_state['values']['address'],
+    'addr_landmark' => $form_state['values']['landmark']
+  ))->execute();
+}
+
+/**
+ * Implements hook_theme
+ */
+function adscluster_theme() {
+  return array(
+    'adscluster_register_form' => array(
+      'render element' => 'form',
+      'template' => 'adscluster-register-form'
+    )
+    );
+    }

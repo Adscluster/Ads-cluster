@@ -1,0 +1,5 @@
+name = Adscluster
+description = "Module contains all the necessary elemnts for the ads-cluster webpage"
+package = Ads-Cluster
+core = 7.x
+stylesheets[all][]= adcluster.css

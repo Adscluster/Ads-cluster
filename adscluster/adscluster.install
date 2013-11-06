@@ -1,0 +1,160 @@
+<?php
+/**
+ * Implements hook_schema
+ */
+function adscluster_schema() {
+  $schema = array();
+  adscluster_user_details($schema);
+  adscluster_address($schema);
+  return $schema;
+}
+
+function adscluster_user_details(&$schema) {
+  $schema['adscluster_stores'] = array(
+    'description' => 'A table storing list of all the stores that are registered',
+    'fields' => array(
+      'store_id' => array(
+        'description' => 'Primary identifier of the table',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'Name given to the store during registration',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE
+      ),
+      'mobile' => array(
+        'description' => 'Mobile number of the store that is registred.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+      ),
+      'store_category' => array(
+        'description' => 'The category that the store belongs to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'store_brand' => array(
+        'description' => 'The franchise the store belongs to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'The user id from the users table',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      )
+    ),
+    'primary key' => array('store_id'),
+    'indexes' => array(
+      'mobidx' => array('mobile'),
+      'cat' => array('store_category')
+    ),
+  );
+}
+
+function adscluster_address(&$schema) {
+  $schema['adscluster_address'] = array(
+    'description' => 'A table storing all the addresses.',
+    'fields' => array(
+      'addr_id' => array(
+        'description' => 'Primary identifier of the table',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'addr_type' => array(
+        'description' => 'Name given to the store during registration',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE
+      ),
+      'addr_type_id' => array(
+        'description' => 'The foregin key.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'addr_location_state' => array(
+        'description' => 'The taxonomy term id of the state.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'addr_location_city' => array(
+        'description' => 'The taxonomy term id of the city',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'addr_full' => array(
+        'description' => 'The complete address of the store',
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => FALSE,
+      ),
+      'addr_landmark' => array(
+        'description' => 'The landmaek that is near the address',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      )
+    ),
+    'primary key' => array('addr_id')
+  );
+}
+/**
+ * Add the required tables into the Database
+ */
+function adscluster_update_1() {
+  $schema = adscluster_schema();
+  foreach ($schema as $table => $table_spec) {
+    if (!db_table_exists($table)) {
+      db_create_table($table, $table_spec);
+    }
+  }
+}
+/**
+ *Adding a few fields and changing the location field name
+ */
+function adscluster_update_2() {
+  db_add_field('adscluster_stores', 'store_brand', array(
+    'description' => 'The franchise the store belongs to.',
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+  db_add_field('adscluster_stores', 'uid', array(
+    'description' => 'The user id from the users table',
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+  db_add_field('adscluster_address', 'addr_location_city', array(
+    'description' => 'The taxonomy term id of the city',
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+
+  db_change_field('adscluster_address', 'addr_location_taxid', 'addr_location_state', array(
+    'description' => 'The taxonomy term id of the state.',
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+}
+/**
+ * Add area to the address
+ */
+function adscluster_update_3(){
+  db_add_field('adscluster_address', 'addr_location_area', array(
+    'description' => 'The tid of the area of the store',
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+}

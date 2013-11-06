@@ -1,0 +1,13 @@
+#adscluster-register-form .form-type-select{
+	padding-left: 15px;
+}
+#adscluster-register-form .form-submit{
+	position: relative;
+	right: -300px;
+}
+#adscluster-register-form thead{
+	background-color: #000;
+}
+#adscluster-register-form #edit-submit{
+	color: #000;
+}
